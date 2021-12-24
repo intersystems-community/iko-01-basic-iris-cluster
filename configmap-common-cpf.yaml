@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: common.cpf
+data:
+  # See https://docs.intersystems.com/irislatest/csp/docbook/DocBook.UI.Page.cls?KEY=RACS_CPF
+  ## for configuration description
+  #
+  # Here we set 256Mi Globals Buffer Cache
+  common.cpf: |-
+    [config]
+    globals= 0,0,256,0,0,0

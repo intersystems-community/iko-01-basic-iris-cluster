@@ -1,0 +1,14 @@
+apiVersion: intersystems.com/v1alpha1
+kind: IrisCluster
+metadata:
+  name: iris
+spec:
+  # Fake empty license in our case
+  licenseKeySecret:
+    name: iris-license
+
+  # Topology section defines an architecture
+  # It doesn't contain "shards" field, so a standalone instance is deployed
+  topology:
+    data:
+      image: <dockerhub_account>/secured-rest-api:2021.1.0.215.3-zpm
