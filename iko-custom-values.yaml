@@ -1,7 +1,0 @@
-operator:
-  registry: <dockerhub_account>
-  repository: iris-operator
-  tag: 3.1.0.112
-
-imagePullSecrets:
-  - name: docker-registry-secret

@@ -5,7 +5,6 @@
 - [Kubernetes Server](#kubernetes-server)
 - [Tools](#tools)
 - [Custom IRIS-based application image](#custom-iris-based-application-image)
-- [InterSystems Kubernetes Operator Image](#interSystems-kubernetes-operator-image)
 - [IKO Installation](#iko-installation)
 - [Application Installation minimal](#application-installation-minimal)
 - [Check an application availability](#check-an-application-availability)
@@ -22,14 +21,14 @@ Other upcoming repositories are going to highlight the following topics:
 5. Deploying IAM with your IRIS cluster.
 6. Creating and using hugepages with IRIS.
 
-Although you can install IRIS or IRIS-based application in Kubernetes using raw manifests (deployments, statefulsets etc.), it's much simpler to leverage a specifically created application which can deploy a desired IRIS-cluster with minimal settings from your side.
+Although you can install IRIS or IRIS-based application in Kubernetes using regular yaml-manifests (deployments, statefulsets etc.), it's much simpler to leverage a specifically created application which can deploy a desired IRIS-cluster with minimal settings from your side.
 
 Read more about Kubernetes Operator approach at [Kubernetes Operator Explained](https://blog.container-solutions.com/kubernetes-operators-explained) and [How to explain Kubernetes Operators in plain English](https://enterprisersproject.com/article/2019/2/kubernetes-operators-plain-english).
 
 
-> **Note**: as IKO and your application are Docker images itself, it's supposed below that you have an [account at DockerHub](https://hub.docker.com/signup) and can create public/private repositories in this account. It's not a requirement, but we should store either public or private Docker images somewhere, so DockerHub is chosen in a sake of simplicity. Actually, any Container Registry you have an access to could be used.
+> **Note**: as your application is a Docker image itself, it's supposed below that you have an [account at DockerHub](https://hub.docker.com/signup). It's not a requirement, but we should store an application Docker image somewhere, so DockerHub is chosen in a sake of simplicity. Actually, any Container Registry you have an access to could be used.
 
-DockerHub account is called `<dockerhub_account>` throughout this readme. Please replace it by actual value, i.e. by your own GitHub account name:
+DockerHub account is called `<dockerhub_account>` throughout this readme. Please replace it by an actual value, i.e. by your own GitHub account name:
 ```
 $ export DOCKERHUB_ACCOUNT=<dockerhub_account> # like 'johndoe'
 $ git clone https://github.com/intersystems-community/iko-01-basic-iris-cluster
@@ -37,13 +36,10 @@ $ cd iko-01-basic-iris-cluster
 $ grep -rl '<dockerhub_account>' . | grep -v README | xargs sed -i "s/<dockerhub_account>/${DOCKERHUB_ACCOUNT}/g"
 ```
 
-We store two images in Docker registry:
-- a *public* image with an IRIS-based application. See [Custom IRIS-based application image](#custom-iris-based-application-image)
-- a *private* image with InterSystems Kubernetes Operator. See [InterSystems Kubernetes Operator Image](#interSystems-kubernetes-operator-image)
+We store an IRIS-based application in Docker registry as a *public* image. See [Custom IRIS-based application image](#custom-iris-based-application-image).
 
-
-### Kubernetes Server
-All examples will be running against a Kubernetes Server. It can be either a local installation, or bare-metal, or one of the Cloud-based solutions (GKE, EKS, AKS etc).
+### Kubernetes cluster
+All examples will be running against a Kubernetes cluster. It can be either a local installation, or bare-metal, or one of the Cloud-based solutions ([GKE](https://cloud.google.com/kubernetes-engine), [EKS](https://aws.amazon.com/eks/), [AKS](https://azure.microsoft.com/en-us/services/kubernetes-service/) etc).
 
 Examples in this readme were running from Linux Ubuntu 20.04 workstation against the following Kubernetes installations:
 - Local [k3s](https://k3s.io/)
@@ -117,76 +113,26 @@ $ docker tag secured-rest-api:2021.1.0.215.3-zpm <dockerhub_account>/secured-res
 $ docker push <dockerhub_account>/secured-rest-api:2021.1.0.215.3-zpm
 ```
 
-### InterSystems Kubernetes Operator Image
-First, download IKO archive from [InterSystems Worldwide Response Center (WRC)](https://www.intersystems.com/support-learning/support/) and extract its content.
-
-![IKO Download](images/wrc-iko.png?raw=true "IKO Download")
-
-This readme contains an example for IKO version `3.1.0.112`, so an extracted content will be in a `iris_operator-3.1.0.112/` directory.
-
-> **Note**: it's assumed below that you've downloaded IKO archive and extracted it into the root directory of this repository.
-
-IKO image is located inside `image/` directory:
-```
-$ tree iris_operator-3.1.0.112/image/
-iris_operator-3.1.0.112/image/
-└── iris_operator-3.1.0.112-docker.tgz
-```
-If you have an account at [InterSystems Containers Registry](https://containers.intersystems.com/) you can directly use an image set in an extracted archive, i.e. `containers.intersystems.com/intersystems/iris-operator:3.1.0.112`:
-```
-$ head iris_operator-3.1.0.112/chart/iris-operator/values.yaml
-...
-operator:
-  registry: containers.intersystems.com
-  repository: intersystems/iris-operator
-  tag: 3.1.0.112
-```
-But in this readme we will push a provided image into DockerHub *private* repository as an example of usage a custom repository:
-```
-$ export IKO_REGISTRY=<dockerhub_account>/iris-operator
-$ export IKO_VERSION=3.1.0.112
-$ docker load -i iris_operator-${IKO_VERSION}/image/iris_operator-${IKO_VERSION}-docker.tgz
-$ docker tag intersystems/iris-operator:${IKO_VERSION} ${IKO_REGISTRY}:${IKO_VERSION}
-$ docker push ${IKO_REGISTRY}:${IKO_VERSION} # you may need to "docker login --username <dockerhub_account>" first
-```
-
 ### IKO Installation
-After pushing we should tell an installation procedure that we're going to use this new image. Besides that we should provide credentials which Kubernetes could use to login into private Docker registry, DockerHub in our case.
+We install everything into `iko` namespace. It will be created below during `helm upgrade` command.
 
-> **Note**: we install everything into `iko` namespace, so create it first if it doesn't already exist:
-```
-$ kubectl create namespace iko --dry-run=client -oyaml | kubectl apply -f -
-```
-Credentials to Docker registry are provided to Kubernetes as a Secret resource. See [Pull an Image from a Private Registry](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/) for more details:
-```
-$ export DOCKERHUB_ACCOUNT=<dockerhub_account> # like 'johndoe'
-$ echo <dockerhub_password> > ~/.password.txt
-$ kubectl -n iko create secret docker-registry docker-registry-secret --docker-server=https://index.docker.io/v1/ --docker-username=${DOCKERHUB_ACCOUNT} --docker-password=$(cat ~/.password.txt)
-$ rm ~/.password.txt
-$ kubectl -n iko get secret docker-registry-secret
-NAME                     TYPE                             DATA   AGE
-docker-registry-secret   kubernetes.io/dockerconfigjson   1      110s
-```
-Now we're ready to install IKO itself. The recommended installation way is [Using Helm](https://helm.sh/docs/intro/using_helm/).
+The recommended IKO installation way is [Using Helm](https://helm.sh/docs/intro/using_helm/).
 Helm chart is like a collection of Kubernetes manifests where in some places we can use variables defined in `values.yaml` file.
 A standard `values.yaml` file goes inside IKO tarball.
-As we use a private registry, we could define it and its credentials in another `values.yaml` file. Let's call it `iko-custom-values.yaml`:
 ```
-$ cat iko-custom-values.yaml
-operator:
-  registry: <dockerhub_account>
-  repository: iris-operator
-  tag: 3.1.0.112
+$ helm repo add intersystems-charts https://charts.demo.community.intersystems.com
+$ helm repo update
+$ helm search repo intersystems-charts
+NAME                             	CHART VERSION	APP VERSION	DESCRIPTION
+intersystems-charts/iris-operator	3.1.0        	3.1.0.112  	IRIS Operator by InterSystems
 
-imagePullSecrets:
-  - name: docker-registry-secret
-
-$ helm upgrade --install iko                     \
-    iris_operator-3.1.0.112/chart/iris-operator/ \
-    --namespace iko                              \
-    --atomic                                     \
-    --wait                                       \
-    -f iko-custom-values.yaml
+$ helm upgrade --install iko          \
+    intersystems-charts/iris-operator \
+    --version 3.1.0                   \
+    --namespace iko                   \
+    --create-namespace                \
+    --atomic                          \
+    --wait
 
 $ helm -n iko ls --all -f iko
 NAME	NAMESPACE	REVISION	UPDATED                                	STATUS  	CHART              	APP VERSION
