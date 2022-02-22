@@ -62,7 +62,7 @@ $ k3d --version
 k3d version v5.2.2
 k3s version v1.21.7-k3s1 (default)
 
-$ k3d cluster create my --agents 1 --servers 1 # One control plane and one worker node
+$ k3d cluster create my --image rancher/k3s:v1.21.7-k3s1 --agents 1 --servers 1 # One control plane and one worker node
 
 $ docker ps --format 'table {{.ID}}\t{{.Image}}\t{{.Names}}'
 CONTAINER ID   IMAGE                      NAMES
