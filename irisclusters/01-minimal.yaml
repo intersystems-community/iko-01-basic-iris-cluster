@@ -3,7 +3,7 @@ kind: IrisCluster
 metadata:
   name: iris
 spec:
-  # Fake empty license in our case
+  # Empty license in our case
   licenseKeySecret:
     name: iris-license
 
