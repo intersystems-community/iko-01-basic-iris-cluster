@@ -65,13 +65,13 @@ jq-1.6
 ### Kubernetes cluster
 All examples will be running against a Kubernetes cluster. It can be either a local installation, or bare-metal, or one of the Cloud-based solutions ([GKE](https://cloud.google.com/kubernetes-engine), [EKS](https://aws.amazon.com/eks/), [AKS](https://azure.microsoft.com/en-us/services/kubernetes-service/) etc).
 
+**Kubernetes version 1.22.7** is used.
+
 Examples in this readme are shown for `Linux Ubuntu 20.04` workstation against the following Kubernetes installations:
 - Local [k3s](https://k3s.io/)
 - Cloud-based [GKE](https://cloud.google.com/kubernetes-engine)
 
 Choose any other type of Kubernetes cluster installation you like or have an access to. Here we just provide a few examples.
-
-> **Note**: Kubernetes version 1.21.7 is used in this readme. Used IKO version (3.1.0.112) isn't compatible with Kubernetes clusters v1.22+
 
 ##### k3s
 It's a lightweight Kubernetes with a lightweight wrapper [k3d](https://k3d.io/v5.2.2/) that enables us to run local Kubernetes nodes in containers. Latest version installation doesn't look too complex:
@@ -88,18 +88,18 @@ $ k3d --version
 k3d version v5.4.1
 k3s version v1.22.7-k3s1 (default)
 
-$ k3d cluster create my --image rancher/k3s:v1.21.7-k3s1 --agents 1 --servers 1 # One control plane and one worker node
+$ k3d cluster create my --image rancher/k3s:v1.22.7-k3s1 --agents 1 --servers 1 # One control plane and one worker node
 
 $ docker ps --format 'table {{.ID}}\t{{.Image}}\t{{.Names}}'
 CONTAINER ID   IMAGE                      NAMES
 2f40a9166334   ghcr.io/k3d-io/k3d-proxy:5.4.1   k3d-my-serverlb
-7b74296e1ef1   rancher/k3s:v1.21.7-k3s1         k3d-my-agent-0
-01c2a442260b   rancher/k3s:v1.21.7-k3s1         k3d-my-server-0
+7b74296e1ef1   rancher/k3s:v1.22.7-k3s1         k3d-my-agent-0
+01c2a442260b   rancher/k3s:v1.22.7-k3s1         k3d-my-server-0
 
 $ kubectl get nodes
 NAME              STATUS   ROLES                  AGE     VERSION
-k3d-my-server-0   Ready    control-plane,master   2m30s   v1.21.7+k3s1
-k3d-my-agent-0    Ready    <none>                 2m21s   v1.21.7+k3s1
+k3d-my-server-0   Ready    control-plane,master   2m30s   v1.22.7+k3s1
+k3d-my-agent-0    Ready    <none>                 2m21s   v1.22.7+k3s1
 ```
 > **Note**: you can remove a local Kubernetes cluster later in case of need:
 ```
@@ -134,13 +134,14 @@ A standard `values.yaml` file goes inside IKO tarball.
 ```
 $ helm repo add intersystems-charts https://charts.demo.community.intersystems.com
 $ helm repo update
-$ helm search repo intersystems-charts
-NAME                             	CHART VERSION	APP VERSION	DESCRIPTION
-intersystems-charts/iris-operator	3.1.0        	3.1.0.112  	IRIS Operator by InterSystems
+$ helm search repo intersystems-charts -l
+NAME                                    CHART VERSION   APP VERSION     DESCRIPTION
+intersystems-charts/iris-operator       3.3.0           3.3.0.120       IRIS Operator by InterSystems
+intersystems-charts/iris-operator       3.1.0           3.1.0.112       IRIS Operator by InterSystems
 
 $ helm upgrade --install iko          \
     intersystems-charts/iris-operator \
-    --version 3.1.0                   \
+    --version 3.3.0                   \
     --namespace iko                   \
     --create-namespace                \
     --atomic                          \
@@ -148,7 +149,7 @@ $ helm upgrade --install iko          \
 
 $ helm -n iko ls --all -f iko
 NAME	NAMESPACE	REVISION	UPDATED                                	STATUS  	CHART              	APP VERSION
-iko 	iko      	1       	2021-12-22 18:38:30.437526154 +0200 EET	deployed	iris-operator-3.1.0	3.1.0.112
+iko 	iko      	1       	2021-12-22 18:38:30.437526154 +0200 EET	deployed	iris-operator-3.3.0	3.3.0.120
 ```
 
 ### Application Installation minimal
