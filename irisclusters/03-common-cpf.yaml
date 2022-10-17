@@ -15,14 +15,16 @@ spec:
   # It doesn't contain "shards" field, so a standalone instance is deployed
   topology:
     data:
-      image: <dockerhub_account>/secured-rest-api:2021.1.0.215.3-zpm
-
+      image: <dockerhub_account>/secured-rest-api:2022.2.0.345
       podTemplate:
         spec:
+          args:
+          - --check-caps
+          - "false"
           resources:
             requests:
-              cpu: 200m
-              memory: 512Mi
+              cpu: 300m
+              memory: 1Gi
             limits:
-              cpu: 200m
-              memory: 512Mi
+              cpu: 300m
+              memory: 1Gi

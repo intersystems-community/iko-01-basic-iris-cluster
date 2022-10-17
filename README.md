@@ -2,7 +2,7 @@
 
 ### Content
 - [Introduction](#introduction)
-- [Tools](#tools)
+- [Versions](#versions)
 - [Kubernetes Server](#kubernetes-server)
 - [Custom IRIS-based application image](#custom-iris-based-application-image)
 - [IKO Installation](#iko-installation)
@@ -12,7 +12,7 @@
 - [Conclusion](#conclusion)
 
 ### Introduction
-This repository is the first part of code samples repositories intended to practice with [InterSystems Kubernetes Operator](https://docs.intersystems.com/components/csp/docbook/DocBook.UI.Page.cls?KEY=AIKO) (IKO).
+This is the first part of code samples repositories intended to demonstrate [InterSystems Kubernetes Operator](https://docs.intersystems.com/components/csp/docbook/DocBook.UI.Page.cls?KEY=AIKO) (IKO) usage.
 
 Code samples repositories are going to highlight the following topics:
 1. <ins>[Basic IRIS Cluster – single data node, no compute nodes/gateways/etc](https://github.com/intersystems-community/iko-01-basic-iris-cluster).</ins>
@@ -22,39 +22,51 @@ Code samples repositories are going to highlight the following topics:
 5. Deploying IAM with your IRIS cluster.
 6. Creating and using hugepages with IRIS.
 
-You can install IRIS or IRIS-based application in Kubernetes using regular yaml-manifests (deployments, statefulsets etc.), but it's much simpler to leverage a specifically created application, Kubernetes Operator, which can deploy a desired IRIS-cluster with minimal settings from your side.
+You can install IRIS or IRIS-based application in Kubernetes using regular yaml-manifests (deployments, statefulsets, services etc.), but it's much simpler to leverage a specifically created Kubernetes Operator which can deploy a desired IRIS-cluster with minimal settings from your side.
 
-You can read a little about Kubernetes Operator approach at [Kubernetes Operator Explained](https://blog.container-solutions.com/kubernetes-operators-explained) and [How to explain Kubernetes Operators in plain English](https://enterprisersproject.com/article/2019/2/kubernetes-operators-plain-english).
+You can read about Kubernetes Operator approach at [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/), [Kubernetes Operators Explained](https://blog.container-solutions.com/kubernetes-operators-explained) and [How to explain Kubernetes Operators in plain English](https://enterprisersproject.com/article/2019/2/kubernetes-operators-plain-english) pages.
 
 
-> **Note**: it's assumed below that deployed IRIS-based application is packed in a Docker image and you have an [account at DockerHub](https://hub.docker.com/signup). DockerHub is not a requirement, but an application Docker image should be stored somewhere, so DockerHub is chosen in a sake of simplicity. Actually, any Container Registry (GCR, ECR, custom) you have an access to could be used.
+IRIS-based application should be packed in Docker image to be able running in Kubernetes. Also this image should be available from Kubernetes cluster, i.e. published in Docker registry where Kubernetes has an access to.
 
-DockerHub account is called `<dockerhub_account>` throughout this readme. Please replace it by an actual value, i.e. by your own GitHub account name, like here:
+Let's use DockerHub as such a registry. You'll need an [account at DockerHub](https://hub.docker.com/signup) to be able to push images.
+
+DockerHub account is called `<dockerhub_account>` throughout this readme. Please replace it by an actual value, i.e. by your own DockerHub account name, like here:
 ```
 $ export DOCKERHUB_ACCOUNT=<dockerhub_account> # like 'johndoe'
 $ git clone https://github.com/intersystems-community/iko-01-basic-iris-cluster
 $ cd iko-01-basic-iris-cluster
 $ grep -rl '<dockerhub_account>' . | grep -v README | xargs sed -i "s/<dockerhub_account>/${DOCKERHUB_ACCOUNT}/g"
+# Note: on Mac you might run the following command:
+$ grep -rl '<dockerhub_account>' . | grep -v README | xargs sed -i '' "s/<dockerhub_account>/${DOCKERHUB_ACCOUNT}/g"
 ```
 
 We will store an IRIS-based application in Docker registry as a *public* image. See [Custom IRIS-based application image](#custom-iris-based-application-image).
 
-### Tools
-We use the following tools:
+### Versions
+Examples in this repository were running on `Ubuntu-22.04` workstation. The following versions were used:
+
+#### Server-side
+- Kubernetes 1.24.4
+- IKO 3.3.0.120
+- Application is based on IRIS 2022.2.0.345
+
+#### Client-side
+
 - [docker](https://docs.docker.com/engine/install/)
 ```
 $ docker version --format='{{.Client.Version}}'
-20.10.14
+20.10.18
 ```
 - [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl)
 ```
-$ kubectl version --client --short
-Client Version: v1.23.0
+$ kubectl version --client --output=json | jq -r '.clientVersion.gitVersion'
+v1.24.4
 ```
 - [helm](https://helm.sh/docs/intro/install/)
 ```
 $ helm version --short
-v3.8.1+g5cb9af4
+v3.10.0+gce66412
 ```
 - [jq](https://stedolan.github.io/jq/download/)
 ```
@@ -63,45 +75,36 @@ jq-1.6
 ```
 
 ### Kubernetes cluster
-All examples will be running against a Kubernetes cluster. It can be either a local installation, or bare-metal, or one of the Cloud-based solutions ([GKE](https://cloud.google.com/kubernetes-engine), [EKS](https://aws.amazon.com/eks/), [AKS](https://azure.microsoft.com/en-us/services/kubernetes-service/) etc).
-
-**Kubernetes version 1.22.7** is used.
-
-Examples in this readme are shown for `Linux Ubuntu 20.04` workstation against the following Kubernetes installations:
-- Local [k3s](https://k3s.io/)
+Examples in this repository were running with the following Kubernetes installations:
+- Local [k3s](https://k3s.io/) with [k3d](https://k3d.io/) wrapper
 - Cloud-based [GKE](https://cloud.google.com/kubernetes-engine)
 
-Choose any other type of Kubernetes cluster installation you like or have an access to. Here we just provide a few examples.
+Choose any other type of Kubernetes cluster installation you like or have an access to.
 
-##### k3s
-It's a lightweight Kubernetes with a lightweight wrapper [k3d](https://k3d.io/v5.2.2/) that enables us to run local Kubernetes nodes in containers. Latest version installation doesn't look too complex:
+##### k3s/k3d
+[k3s](https://k3s.io) is a lightweight Kubernetes with a lightweight wrapper [k3d](https://k3d.io) that enables us to run local Kubernetes in docker. Installation looks simple:
 ```
-$ curl -sfL https://get.k3s.io | sh -
-
-$ k3s --version
-k3s version v1.22.7+k3s1 (8432d7f2)
-go version go1.16.10
-
-$ curl -s https://raw.githubusercontent.com/rancher/k3d/main/install.sh | bash
+$ curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | TAG=v5.4.6 bash
 
 $ k3d --version
-k3d version v5.4.1
-k3s version v1.22.7-k3s1 (default)
+k3d version v5.4.6
+k3s version v1.24.4-k3s1 (default)
 
-$ k3d cluster create my --image rancher/k3s:v1.22.7-k3s1 --agents 1 --servers 1 # One control plane and one worker node
+# Run Kubernetes cluster with one control plane as well as one worker node
+$ k3d cluster create my --image rancher/k3s:v1.24.4-k3s1 --agents 1 --servers 1
 
 $ docker ps --format 'table {{.ID}}\t{{.Image}}\t{{.Names}}'
-CONTAINER ID   IMAGE                      NAMES
-2f40a9166334   ghcr.io/k3d-io/k3d-proxy:5.4.1   k3d-my-serverlb
-7b74296e1ef1   rancher/k3s:v1.22.7-k3s1         k3d-my-agent-0
-01c2a442260b   rancher/k3s:v1.22.7-k3s1         k3d-my-server-0
+CONTAINER ID   IMAGE                            NAMES
+9e669c6b5816   ghcr.io/k3d-io/k3d-proxy:5.4.6   k3d-my-serverlb
+2e593f13020f   rancher/k3s:v1.24.4-k3s1         k3d-my-agent-0
+8e4132053b44   rancher/k3s:v1.24.4-k3s1         k3d-my-server-0
 
 $ kubectl get nodes
-NAME              STATUS   ROLES                  AGE     VERSION
-k3d-my-server-0   Ready    control-plane,master   2m30s   v1.22.7+k3s1
-k3d-my-agent-0    Ready    <none>                 2m21s   v1.22.7+k3s1
+NAME              STATUS   ROLES                  AGE   VERSION
+k3d-my-agent-0    Ready    <none>                 25s   v1.24.4+k3s1
+k3d-my-server-0   Ready    control-plane,master   32s   v1.24.4+k3s1
 ```
-> **Note**: you can remove a local Kubernetes cluster later in case of need:
+> **Note**: you can remove a local Kubernetes cluster later if necessary:
 ```
 $ k3d cluster list
 NAME   SERVERS   AGENTS   LOADBALANCER
@@ -111,26 +114,26 @@ $ k3d cluster delete my
 ```
 
 ##### GKE
-There are many ways to create a Kubernetes cluster in a Google Cloud. One of the way is described in [Using Cloud Monitoring to Monitor IRIS-Based Applications Deployed in GKE](https://community.intersystems.com/post/using-cloud-monitoring-monitor-iris-based-applications-deployed-gke) in a section `GKE Creation`.
+There are many ways to create a Kubernetes cluster in a Google Cloud. One of the ways is described in [Using Cloud Monitoring to Monitor IRIS-Based Applications Deployed in GKE](https://community.intersystems.com/post/using-cloud-monitoring-monitor-iris-based-applications-deployed-gke) in a section `GKE Creation`.
 
 ### Custom IRIS-based application image
 Let's deploy a custom IRIS-based application, called [secured-rest-api](https://github.com/intersystems-community/secured-rest-api). Docker image is built in a regular way - find a [Dockerfile](https://github.com/intersystems-community/secured-rest-api/blob/master/Dockerfile), run a build command and then push an image to DockerHub public repository:
 
 ```
+$ export DOCKERHUB_ACCOUNT=<dockerhub_account> # like 'johndoe'
+$ export VERSION=2022.2.0.345
 $ git clone https://github.com/intersystems-community/secured-rest-api.git
 $ cd secured-rest-api
-$ docker build -t secured-rest-api:2021.1.0.215.3-zpm .
-$ docker tag secured-rest-api:2021.1.0.215.3-zpm ${DOCKERHUB_ACCOUNT}/secured-rest-api:2021.1.0.215.3-zpm
+$ docker build -t secured-rest-api:${VERSION} .
+$ docker tag secured-rest-api:${VERSION} ${DOCKERHUB_ACCOUNT}/secured-rest-api:${VERSION}
 $ docker login -u ${DOCKERHUB_ACCOUNT} # type DockerHub account password here
-$ docker push ${DOCKERHUB_ACCOUNT}/secured-rest-api:2021.1.0.215.3-zpm
+$ docker push ${DOCKERHUB_ACCOUNT}/secured-rest-api:${VERSION}
 ```
 
 ### IKO Installation
-Let's install everything into `iko` namespace. It will be created below during `helm upgrade` command.
+Let's install IKO and IRIS based application into `iko` namespace.
 
-The recommended IKO installation way is [Using Helm](https://helm.sh/docs/intro/using_helm/).
-Helm chart is like a collection of Kubernetes manifests where in some places we can use variables defined in `values.yaml` file.
-A standard `values.yaml` file goes inside IKO tarball.
+We will install IKO [Using Helm](https://helm.sh/docs/intro/using_helm/).
 ```
 $ helm repo add intersystems-charts https://charts.demo.community.intersystems.com
 $ helm repo update
@@ -139,21 +142,30 @@ NAME                                    CHART VERSION   APP VERSION     DESCRIPT
 intersystems-charts/iris-operator       3.3.0           3.3.0.120       IRIS Operator by InterSystems
 intersystems-charts/iris-operator       3.1.0           3.1.0.112       IRIS Operator by InterSystems
 
+# The nodeSelector=null is set here for simplicity to avoid issues with nodes OS-type
 $ helm upgrade --install iko          \
     intersystems-charts/iris-operator \
     --version 3.3.0                   \
     --namespace iko                   \
     --create-namespace                \
     --atomic                          \
-    --wait
+    --wait                            \
+    --set nodeSelector=null
 
-$ helm -n iko ls --all -f iko
-NAME	NAMESPACE	REVISION	UPDATED                                	STATUS  	CHART              	APP VERSION
-iko 	iko      	1       	2021-12-22 18:38:30.437526154 +0200 EET	deployed	iris-operator-3.3.0	3.3.0.120
+$ helm -n iko ls --all -f iko -o=json | jq '.[]'
+{
+  "name": "iko",
+  "namespace": "iko",
+  "revision": "1",
+  "updated": "<date>",
+  "status": "deployed",
+  "chart": "iris-operator-3.3.0",
+  "app_version": "3.3.0.120"
+}
 ```
 
-### Application Installation minimal
-After installing IKO we're ready to install a custom IRIS-based application. IKO can do it for us if we provide a desired cluster definition in yaml file. More details can be found at [Create the IrisCluster definition file](https://docs.intersystems.com/components/csp/docbook/DocBook.UI.Page.cls?KEY=AIKO#AIKO_clusterdef).
+### Minimal application installation
+After IKO installation we're ready to install a custom IRIS-based application. IKO can do it for us if we provide a desired cluster definition in yaml file. More details can be found at [Create the IrisCluster definition file](https://docs.intersystems.com/components/csp/docbook/DocBook.UI.Page.cls?KEY=AIKO#AIKO_clusterdef).
 
 We will start with a minimal viable definition - [01-minimal.yaml](irisclusters/01-minimal.yaml).
 
@@ -161,7 +173,7 @@ We will start with a minimal viable definition - [01-minimal.yaml](irisclusters/
 
 As this demo application is based on Community IRIS, we don't need a license for it and can use an empty license secret. If an application requires a license, please follow [licenseKeySecret: Provide a secret containing the InterSystems IRIS license key](https://docs.intersystems.com/components/csp/docbook/DocBook.UI.Page.cls?KEY=AIKO#AIKO_clusterdef_licenseKeySecret) instruction.
 
-So let's create a license secret first (from file [empty-iris-license.yaml](empty-iris-license.yaml)):
+So let's create a license secret first (from [empty-iris-license.yaml](empty-iris-license.yaml)):
 ```
 $ kubectl -n iko apply -f empty-iris-license.yaml
 ```
@@ -238,7 +250,7 @@ $ curl -sku Bill:ChangeMe http://localhost:52773/crud/persons/all | jq '.[0]'
   "Name": "John Doe"
 }
 ```
-See that recently created user still exists. Press `Ctrl+C` to stop port-forwarding.
+As we see recently created user still exists. Press `Ctrl+C` to stop port-forwarding.
 
 ### Application Installation with custom settings
 Default settings are good enough to run an IRIS-based application almost on every Kubernetes cluster but you would definitely be interested in ways to change them according to your needs.
@@ -299,12 +311,12 @@ Let's examine resources after update, they should be equal to what we've set:
 $ kubectl -n iko get pods iris-data-0 -ojsonpath='{.spec.containers[*].resources}' | jq .
 {
   "limits": {
-    "cpu": "200m",
-    "memory": "512Mi"
+    "cpu": "300m",
+    "memory": "1Gi"
   },
   "requests": {
-    "cpu": "200m",
-    "memory": "512Mi"
+    "cpu": "300m",
+    "memory": "1Gi"
   }
 }
 ```
@@ -364,7 +376,7 @@ IRIS instance will be recreated. Examining pod logs should show an updated value
 $ kubectl -n iko logs -f iris-data-0 | grep -i global
 [INFO] log: 12/23/21-17:22:27:392 (799) 0 [Generic.Event] Allocated 103MB shared memory: 16MB global buffers, 35MB routine buffers
 Allocated 103MB shared memory: 16MB global buffers, 35MB routine buffers
-12/23/21-17:22:32:989 (1212) 0 [Generic.Event] Allocated 689MB shared memory: 256MB global buffers, 80MB routine buffers
+12/23/21-17:22:32:989 (1212) 0 [Generic.Event] Allocated 689MB shared memory: 512MB global buffers, 80MB routine buffers
 ```
 
 ### Conclusion
