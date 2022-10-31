@@ -3,10 +3,10 @@
 ### Content
 - [Introduction](#introduction)
 - [Versions](#versions)
-- [Kubernetes Server](#kubernetes-server)
+- [Kubernetes cluster](#kubernetes-cluster)
 - [Custom IRIS-based application image](#custom-iris-based-application-image)
 - [IKO Installation](#iko-installation)
-- [Application Installation minimal](#application-installation-minimal)
+- [Minimal application installation](#minimal-application-installation)
 - [Check an application availability](#check-an-application-availability)
 - [Application Installation with custom settings](#application-installation-with-custom-settings)
 - [Conclusion](#conclusion)
